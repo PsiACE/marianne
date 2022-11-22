@@ -5,7 +5,7 @@ import os
 
 import click
 import joblib
-import pandas as pd
+import polars as pl
 from flask import current_app, g
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer
@@ -35,14 +35,23 @@ def predict_text(text):
 
 
 def init_model():
-    data = pd.read_csv(
+    data = pl.read_csv(
         os.path.join(current_app.config["DATA_PATH"], "spam_and_ham_text.csv")
     )
-    data = data[["label", "text"]]
+    label = data.select(
+        [
+            pl.col("label"),
+        ]
+    )
+    text = data.select(
+        [
+            pl.col("text"),
+        ]
+    )
     vc = CountVectorizer()
-    x_train_counts = vc.fit_transform(data["text"])
+    x_train_counts = vc.fit_transform(text.to_numpy()[0])
     model = RandomForestClassifier(n_estimators=100)
-    model.fit(x_train_counts, data["label"])
+    model.fit(x_train_counts, label.to_numpy()[0])
     joblib.dump(
         model, current_app.config["SPAM_DETECT_MODEL"] + "/" + "randomforest.model"
     )
